@@ -6,12 +6,16 @@ abstract class WeatherEvent {
   WeatherEvent(this.location);
 }
 
-class Listlocation extends WeatherEvent {
-  Listlocation(location) : super(location);
+class ListLocation extends WeatherEvent {
+  ListLocation(location) : super(location);
 }
 
 class FetchWeather extends WeatherEvent {
   FetchWeather(location) : super(location);
+}
+
+class FetchCurrentLocationWeather extends WeatherEvent {
+  FetchCurrentLocationWeather() : super(null);
 }
 
 // class FetchingWeather extends WeatherEvent {

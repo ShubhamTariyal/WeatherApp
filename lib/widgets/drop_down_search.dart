@@ -44,9 +44,9 @@ class _DropDownSearchState extends State<DropDownSearch> {
           hint: "Select one",
           searchHint: null,
           onChanged: (value) {
-            setState(() {
+            // setState(() {
               weatherBloc.add(FetchWeather(value));
-            });
+            // });
           },
           dialogBox: false,
           isExpanded: true,

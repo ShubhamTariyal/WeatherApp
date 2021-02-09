@@ -1,28 +1,39 @@
+// import 'package:equatable/equatable.dart';
 part of 'weather_bloc.dart';
 
 @immutable
 abstract class WeatherState {
   final WeatherData weatherData;
   final int iconNo;
-  WeatherState([this.weatherData, this.iconNo]);
+  final Exception error;
+  WeatherState({
+    this.weatherData,
+    this.iconNo,
+    this.error,
+  });
 }
 
 class WeatherLocationList extends WeatherState {
-  WeatherLocationList(weatherData):super(weatherData);
+  WeatherLocationList(weatherData) : super(weatherData: weatherData);
 }
 
 class WeatherInitial extends WeatherState {
-  WeatherInitial(weatherData, iconNo):super(weatherData, iconNo);
+  WeatherInitial({weatherData, iconNo, error})
+      : super(weatherData: weatherData, iconNo: iconNo, error: error);
 }
 
-class LoadingWeather extends WeatherState { }
-
-class ErrorLoadingWeather extends WeatherState { 
-  final int statusCode;
-  final int errorCode;
-  ErrorLoadingWeather(this.statusCode, this.errorCode);
+class CurrentLocationWeather extends WeatherState {
+  CurrentLocationWeather({weatherData, iconNo, error})
+      : super(weatherData: weatherData, iconNo: iconNo, error: error);
 }
+
+class LoadingWeather extends WeatherState {}
+
+// class ErrorLoadingWeather extends WeatherState {
+//   // ErrorLoadingWeather(this.statusCode, this.errorCode);
+// }
 
 class CurrentWeather extends WeatherState {
-  CurrentWeather(weatherData, iconNo):super(weatherData, iconNo);
+  CurrentWeather({weatherData, iconNo, error})
+      : super(weatherData: weatherData, iconNo: iconNo, error: error);
 }

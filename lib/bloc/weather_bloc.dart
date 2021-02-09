@@ -3,16 +3,18 @@ import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
 import 'package:meta/meta.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
+import '../modals/errors/error_loading_weather.dart';
 // import 'package:WeatherApp/screens/weather_screen.dart';
-import '../modal/weather.dart';
+import '../modals/weather.dart';
 
 part 'weather_event.dart';
 part 'weather_state.dart';
 
 class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
-  WeatherBloc() : super(WeatherInitial(null, null));
+  WeatherBloc() : super(WeatherInitial());
 
   Map<int, dynamic> weatherInfo = {
     1000: {"day": "Sunny", "night": "Clear", "icon": 113},
@@ -181,53 +183,128 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     }
   };
 
-  Future<http.Response> fetchWeather(specificUrl, query) async {
+  Future<http.Response> weatherResponse(specificUrl, query) async {
     var url =
         'http://api.weatherapi.com/v1/$specificUrl.json?key=8815198221c5453da57142206212901&q=$query';
-    var response = await http.get(url);
-    // return json.decode(response.body);
-    return response;
+    return await http.get(url);
   }
 
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw ServiceNotEnabled('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.deniedForever) {
+      throw PermissionDeniedPermanently(
+          'Location permissions are permantly denied, we cannot request permissions.');
+    }
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        throw PermissionDenied(
+            'Location permissions are denied (actual value: $permission).');
+      }
+    }
+
+    return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
+  }
+  Stream<WeatherState> yieldWeatherState(query) async*{
+    yield LoadingWeather();
+    try {
+      final response = await weatherResponse('current', query);
+      final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 400) {
+        print(
+            'StatusCode: ${response.statusCode}:: ErrorCode: ${responseJson['error']['code']}:: ${response.body}');
+        throw ErrorLoadingWeather(
+            response.statusCode, responseJson['error']['code']);
+      }
+      final code = responseJson['current']['condition']['code'];
+      print(jsonDecode(response.body));
+      yield CurrentWeather(
+          weatherData: WeatherData.fromJson(responseJson),
+    iconNo: weatherInfo[code]['icon'],
+    );
+    } on WeatherException catch(error) {
+      yield CurrentLocationWeather(error: error);
+    } catch (error) {
+    print("Error in fetching weather");
+    yield CurrentLocationWeather(error: error);
+    // throw error;
+    }
+  }
   @override
   Stream<WeatherState> mapEventToState(
     WeatherEvent event,
   ) async* {
-    if (event is Listlocation) {
-      // var url = baseUrl +
-      //     'search.json?key=8815198221c5453da57142206212901&q=${event.location}';
-      // var response = http.get(url);
-      //TODO implement State return
-      // print(response);
-      yield WeatherLocationList(null);
-    } else if (event is FetchWeather) {
+    if (event is FetchCurrentLocationWeather) {
       yield LoadingWeather();
-      // var url = baseUrl +
-      //     'current.json?key=8815198221c5453da57142206212901&q=${event.location}';
-      try {
-        // var response = await http.get(url);
-        final response = await fetchWeather('current', event.location);
-        final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
-        if(response.statusCode >= 400){
-        print('StatusCode: ${response.statusCode}:: ErrorCode: ${responseJson['error']['code']}:: ${response.body}');
-          yield ErrorLoadingWeather(response.statusCode, responseJson['error']['code']);
 
-          return;
+      try {
+        print('Inside try');
+        Position p = await _determinePosition();//.listen((_){})
+        print('${p.latitude},${p.longitude}');
+        final response = await weatherResponse('current', '${p.latitude},${p.longitude}');
+        final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
+        print('FetchCurrentLocationWeather: $responseJson');
+        if (response.statusCode >= 400) {
+          print(
+              'StatusCode: ${response.statusCode}:: ErrorCode: ${responseJson['error']['code']}:: ${response.body}');
+          throw ErrorLoadingWeather(
+              response.statusCode, responseJson['error']['code']);
+        } else {
+          final code = responseJson['current']['condition']['code'];
+          yield CurrentLocationWeather(
+            weatherData: WeatherData.fromJson(responseJson),
+            iconNo: weatherInfo[code]['icon'],
+          );
         }
-        final code = responseJson['current']['condition']['code'];
-        print(jsonDecode(response.body));
-        yield CurrentWeather(
-          WeatherData.fromJson(responseJson),
-          weatherInfo[code]['icon'],
-        );
+      } on WeatherException catch(error) {
+        yield CurrentLocationWeather(error: error);
       } catch (error) {
         print("Error in fetching weather");
-        yield ErrorLoadingWeather(500,500);
-        throw error;
+        yield CurrentLocationWeather(error: error);
+        // throw error;
       }
     }
-    // if(event is FetchingWeather){
 
-    // }
+    else if (event is ListLocation) {
+      yield WeatherLocationList(null);
+    }
+
+    else if (event is FetchWeather) {
+      // WeatherState w = yieldWeatherState(event.location).stream;
+      yield LoadingWeather();
+      try {
+        final response = await weatherResponse('current', event.location);
+        final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
+        if (response.statusCode >= 400) {
+          print(
+              'StatusCode: ${response.statusCode}:: ErrorCode: ${responseJson['error']['code']}:: ${response.body}');
+          throw ErrorLoadingWeather(
+              response.statusCode, responseJson['error']['code']);
+        }else{
+          final code = responseJson['current']['condition']['code'];
+          print(jsonDecode(response.body));
+          yield CurrentWeather(
+            weatherData: WeatherData.fromJson(responseJson),
+            iconNo: weatherInfo[code]['icon'],
+          );
+        }
+      } on WeatherException catch(error) {
+        yield CurrentWeather(error: error);
+      } catch (error) {
+        print("Error in fetching weather");
+        yield CurrentLocationWeather(error: error);
+        // throw error;
+      }
+    }
   }
 }
