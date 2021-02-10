@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_size_text/auto_size_text.dart';
+// import 'package:geolocator/geolocator.dart';
 
+import '../utils/enable_gps_alert.dart';
+import '../utils/enable_permission_alert.dart';
 import '../modals/errors/error_loading_weather.dart';
 import '../bloc/weather_bloc.dart';
-import '../widgets/drop_down_search.dart';
 
 class WeatherScreen extends StatelessWidget {
   static const routeName = '/';
@@ -15,7 +17,7 @@ class WeatherScreen extends StatelessWidget {
     );
   }
 
-  Widget element(String text, TextStyle style) {
+  Widget element(String text, TextStyle style, [maxline = 2]) {
     return Container(
       margin: EdgeInsets.all(10),
       child: SizedBox(
@@ -24,7 +26,7 @@ class WeatherScreen extends StatelessWidget {
           textAlign: TextAlign.center,
           style: style,
           softWrap: true,
-          maxLines: 2,
+          maxLines: maxline,
         ),
       ),
     );
@@ -70,22 +72,49 @@ class WeatherScreen extends StatelessWidget {
     );
   }
 
-  Widget _showErrorLoadingIndicator(WeatherState state) {
+  Widget _showErrorLoadingIndicator(WeatherState state, BuildContext context) {
     var error;
 
-    if (state.error is ServiceWeatherException) {
-      error = state.error as ServiceWeatherException;
+    if (state.error is ServiceNotEnabled) {
+      error = state.error as ServiceNotEnabled;
+      return Column(
+        children: [
+          element(
+            error.toString(),
+            TextStyle(fontSize: 30),
+          ),
+          FlatButton(
+              child: Text('Try Again',style: TextStyle(fontSize: 20),),
+              // elevation: 5,
+              textColor: Colors.blue,
+              onPressed: () => BlocProvider.of<WeatherBloc>(context)
+                  .add(FetchCurrentLocationWeather())),
+        ],
+      );
+    } else if (state.error is PermissionDenied) {
+      error = state.error as PermissionDenied;
       return element(
-        error,
+        error.toString(),
+        TextStyle(fontSize: 30),
+      );
+    } else if (state.error is PermissionDeniedPermanently) {
+      error = state.error as PermissionDeniedPermanently;
+      return element(
+        error.toString(),
         TextStyle(fontSize: 30),
       );
     }
 
     if (state.error is ErrorLoadingWeather)
       error = state.error as ErrorLoadingWeather;
-    else
-      throw Exception('Unknown Exception encountered!');
-
+    else {
+      return element(
+        'Unknown Error! Check Internet Connection, Permission for GPS and turn On GPS. ',
+        TextStyle(fontSize: 40),
+        4,
+      );
+      // throw Exception('Unknown Exception encountered!');
+    }
     print(error.errorCode);
 
     if (error.statusCode == 401 && error.errorCode == 1002) {
@@ -95,12 +124,12 @@ class WeatherScreen extends StatelessWidget {
       );
     } else if (error.statusCode == 400 && error.errorCode == 1003) {
       return element(
-        "Parameter 'q' not provided",
+        "Proper Query not provided",
         TextStyle(fontSize: 30),
       );
     } else if (error.statusCode == 400 && error.errorCode == 1005) {
       return element(
-        "1005 API request url is invalid",
+        "API request url is invalid",
         TextStyle(fontSize: 30),
       );
     } else if (error.statusCode == 400 && error.errorCode == 1006) {
@@ -130,7 +159,7 @@ class WeatherScreen extends StatelessWidget {
       );
     }
     return element(
-      'Some Error Occured',
+      'Error 404\nSome Unknown Error Occured',
       TextStyle(fontSize: 30),
     );
   }
@@ -140,24 +169,42 @@ class WeatherScreen extends StatelessWidget {
     TextEditingController textController,
     WeatherEvent event,
   ) {
-    BlocProvider.of<WeatherBloc>(context).add(event);
+    var location = textController.text.trim();
+    if (location != null && location != '')
+      BlocProvider.of<WeatherBloc>(context).add(event);
     textController.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     var locationTextController = TextEditingController();
-    // var deviceData = MediaQuery.of(context); //deviceData.viewInsets.bottom
     return Scaffold(
       // resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text('Weather App'),
       ),
-      body: BlocProvider(
+      body: BlocProvider<WeatherBloc>(
         create: (context) => WeatherBloc()..add(FetchCurrentLocationWeather()),
         child: Builder(
-          builder: (context) => BlocBuilder<WeatherBloc, WeatherState>(
-            cubit: BlocProvider.of<WeatherBloc>(context), //will give error as this context does not have a bloc
+          builder: (context) => BlocConsumer<WeatherBloc, WeatherState>(
+            cubit: BlocProvider.of<WeatherBloc>(
+                context), //will give error as this context does not have a bloc
+            listener: (BuildContext context, WeatherState state) {
+              if (state.error != null && state.error is ServiceNotEnabled) {
+                if (state.error is ServiceNotEnabled) {
+                  showEnableGPSDialoge(context);
+                  // if(await Geolocator.isLocationServiceEnabled())
+                  //   BlocProvider.of<WeatherBloc>(context).add(FetchCurrentLocationWeather());
+                  // Scaffold.of(context).showSnackBar(SnackBar(content: Text('Trial')));
+                } else if (state.error is PermissionDenied ||
+                    state.error is PermissionDeniedPermanently) {
+                  showEnablePermissionDialogue('Give GPS Permission', context);
+                }
+                // else if (state.error is PermissionDeniedPermanently) {
+                //   showEnablePermissionDialogue('Give GPS Permission', context);
+                // }
+              }
+            },
             builder: (BuildContext context, WeatherState state) {
               if (state is LoadingWeather) return _showLoadingIndicator();
 
@@ -166,27 +213,8 @@ class WeatherScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Card(
-                    //   shape: RoundedRectangleBorder(
-                    //     borderRadius: BorderRadius.circular(10),
-                    //     side: BorderSide(
-                    //       color: Colors.grey,
-                    //       width: 1.0,
-                    //     ),
-                    //   ),
-                    //   margin: EdgeInsets.fromLTRB(20, 20, 20, 20),
-                    //   child: Padding(
-                    //     padding: const EdgeInsets.all(20.0),
-                    //     child: Column(
-                    //       mainAxisSize: MainAxisSize.min,
-                    //       children: <Widget>[
-                    //         Text("Location:"),
-                    //         DropDownSearch(),
-                    //       ],
-                    //     ),
-                    //   ),
-                    // ),
-                    if (state.error != null) _showErrorLoadingIndicator(state),
+                    if (state.error != null)
+                      _showErrorLoadingIndicator(state, context),
                     if (state.error == null &&
                         (state is CurrentWeather ||
                             state is CurrentLocationWeather))
@@ -216,19 +244,19 @@ class WeatherScreen extends StatelessWidget {
                                   children: [
                                     IconButton(
                                       icon: Icon(Icons.my_location),
-                                      onPressed: () => getWeather(
-                                        context,
-                                        locationTextController,
-                                        FetchCurrentLocationWeather(),
-                                      ),
+                                      onPressed: () => BlocProvider.of<
+                                              WeatherBloc>(context)
+                                          .add(FetchCurrentLocationWeather()),
                                     ),
                                     IconButton(
                                       icon: Icon(Icons.search),
                                       onPressed: () => getWeather(
-                                          context,
-                                          locationTextController,
-                                          FetchWeather(
-                                              locationTextController.text)),
+                                        context,
+                                        locationTextController,
+                                        FetchWeather(
+                                          locationTextController.text,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
