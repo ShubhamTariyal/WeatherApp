@@ -190,7 +190,7 @@ class WeatherScreen extends StatelessWidget {
             cubit: BlocProvider.of<WeatherBloc>(
                 context), //will give error as this context does not have a bloc
             listener: (BuildContext context, WeatherState state) {
-              if (state.error != null && state.error is ServiceNotEnabled) {
+              if (state.error != null && state.error is ServiceWeatherException) {
                 if (state.error is ServiceNotEnabled) {
                   showEnableGPSDialoge(context);
                   // if(await Geolocator.isLocationServiceEnabled())

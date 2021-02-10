@@ -7,7 +7,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 import '../modals/errors/error_loading_weather.dart';
-// import 'package:WeatherApp/screens/weather_screen.dart';
 import '../modals/weather.dart';
 
 part 'weather_event.dart';
@@ -202,21 +201,21 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     }
 
     permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.deniedForever) {
-      print('thrown PermissionDeniedPermanently Exception');
-      throw PermissionDeniedPermanently(
-          'Location permissions are permanently denied, we cannot request permissions.');
-    }
-
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission != LocationPermission.whileInUse &&
           permission != LocationPermission.always) {
         print('thrown PermissionDenied Exception');
         throw PermissionDenied(
-            'Location permissions are denied (actual value: $permission).');
+            'Location permission is denied.');
       }
     }
+    if (permission == LocationPermission.deniedForever) {
+      print('thrown PermissionDeniedPermanently Exception');
+      throw PermissionDeniedPermanently(
+          'Not enough Permissions, Location permission is denied.');
+    }
+
 
     print('Called Geolocator.getCurrentPosition');
     return await Geolocator.getCurrentPosition(
