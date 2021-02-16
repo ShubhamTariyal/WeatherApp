@@ -12,8 +12,8 @@ class WeatherData {
   int lastUpdatedEpoch;
   double tempC;
   double tempF;
-  double feelslikeC;
-  double feelslikeF;
+  double feelsLikeC;
+  double feelsLikeF;
   
   String conditionText;
   String conditionIcon;
@@ -66,8 +66,8 @@ class WeatherData {
   precipIn = json['current']['precip_in'];
   humidity = json['current']['humidity'];
   cloud = json['current']['cloud'];
-  feelslikeC = json['current']['feelslike_c'];
-  feelslikeF = json['current']['feelslike_f'];
+  feelsLikeC = json['current']['feelslike_c'];
+  feelsLikeF = json['current']['feelslike_f'];
   visKm = json['current']['vis_km'];
   visMiles = json['current']['vis_miles'];
   uvIndex = json['current']['uv'];

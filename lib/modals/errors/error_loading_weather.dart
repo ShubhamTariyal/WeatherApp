@@ -1,4 +1,6 @@
 
+import 'package:WeatherApp/constants.dart';
+
 class WeatherException implements Exception{ }
 
 class ErrorLoadingWeather extends WeatherException {
@@ -12,7 +14,7 @@ class ServiceWeatherException extends WeatherException{
   ServiceWeatherException(this.message);
   @override
   String toString() {
-    if (message == null) return "Exception:ServiceNotEnabled";
+    if (message == null) return defaultServiceWeatherExceptionMessage;
     return "$message";
   }
 }
